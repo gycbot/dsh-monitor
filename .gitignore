@@ -1,0 +1,6 @@
+.DS_Store
+*.pyc
+plaintext.html
+*.plain.html
+.env
+secrets/
