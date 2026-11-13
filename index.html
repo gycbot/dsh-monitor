@@ -108,16 +108,19 @@ button.card { min-height:var(--tap); }
 .morebtn { margin-top:6px; height:36px; padding:0 10px; border:1px solid var(--line);
   border-radius:8px; background:transparent; color:var(--acc); font-size:15px; }
 .turnh { margin:18px 0 8px; font-size:15px; color:var(--mut); font-weight:700; }
+article.step, .turnh { scroll-margin-top: 150px; }
 .empty { color:var(--mut); padding:24px 8px; text-align:center; }
 .hidden { display:none !important; }
 
 /* desktop: sidebar + detail */
 @media (min-width: 900px) {
-  #app.desk { display:grid; grid-template-columns: 340px 1fr; grid-template-rows:auto 1fr; min-height:100dvh; }
-  #app.desk header.top { grid-column:1 / -1; }
-  #app.desk #listcol { border-right:1px solid var(--line); overflow:auto; max-height:calc(100dvh - 120px);
-    padding:8px 12px 40px; position:sticky; top:0; }
-  #app.desk #detailcol { overflow:auto; padding:8px 28px 60px; max-height:calc(100dvh - 120px); }
+  #app.desk { display:block; }
+  #app.desk #cols { display:grid; grid-template-columns: 360px 1fr; align-items:start;
+    min-height: calc(100dvh - 148px); }
+  #app.desk #listcol { border-right:1px solid var(--line); overflow:auto;
+    max-height:calc(100dvh - 148px); padding:8px 12px 40px; }
+  #app.desk #detailcol { overflow:auto; padding:8px 28px 60px;
+    max-height:calc(100dvh - 148px); }
   #app.desk #detailPlaceholder { display:flex; }
   .switcher { display:none; }
 }
@@ -125,6 +128,7 @@ button.card { min-height:var(--tap); }
   #listcol, #detailcol { padding: 0; }
   #app.mob-detail #listcol { display:none; }
   #app.mob-list #detailcol { display:none; }
+  #app.mob-list .switcher { display:none; }
   #detailPlaceholder { display:none; }
 }
 #detailPlaceholder { color:var(--mut); align-items:center; justify-content:center; min-height:40vh; }
@@ -165,7 +169,7 @@ button.card { min-height:var(--tap); }
   </div>
 </div>
 <script>
-const MANIFEST_URL = "data/manifest.enc.json?v=47a80744eac3";
+const MANIFEST_URL = "data/manifest.enc.json?v=80df3234b805";
 const SSKEY = "dshMonitor.pw";
 const PREVIEW = 4096;
 let manifest = null;
@@ -321,7 +325,7 @@ function clipView(obj, idBase) {
     (need ? `<button class="morebtn" data-more="${shownId}" data-extra="${encodeURIComponent(extra)}">显示全部${esc(note)}</button>` : "");
 }
 
-function renderStep(st, idx, tid) {
+function renderStep(st, idx, tid, forceOpen) {
   const tools = st.tools || [];
   const think = (st.thinking || []).join("\n\n") || st.thinking_text || "";
   const thinkObj = st.thinking_obj || (think ? {text: think, orig_len: think.length} : null);
@@ -337,7 +341,7 @@ function renderStep(st, idx, tid) {
       ${res ? `<div class="block"><h3>结果</h3>${res}</div>` : ""}</div>`;
   }).join("");
   const qhit = query && JSON.stringify(st).toLowerCase().includes(query.toLowerCase());
-  return `<article class="step ${qhit || idx===0 ? "open":""}" data-step="${idx}">
+  return `<article class="step ${qhit || forceOpen ? "open":""}" data-step="${idx}">
     <button class="head" type="button"><span class="n">${esc(title)}</span><span class="t">${esc(meta)}</span>${hasThink ? '<span class="pill">有思考</span>' : ""}</button>
     <div class="body">
       ${hasThink ? `<div class="block"><h3>思考过程</h3><div class="think">${esc((thinkObj.text || think))}</div></div>` : ""}
@@ -364,9 +368,9 @@ function renderSession(data) {
 
   const sys = data.system_prompts || [];
   if (sys.length) {
-    html += `<details class="step open"><summary class="head" style="display:block;padding:12px 14px;min-height:var(--tap)">系统提示（${sys.length}）</summary><div class="body" style="display:block">`;
+    html += `<details class="sysbox card"><summary style="display:block;padding:4px 0;min-height:var(--tap);cursor:pointer">系统提示（${sys.length}）</summary>`;
     sys.forEach((s,i) => { html += clipView(s, "sys-"+i); });
-    html += `</div></details>`;
+    html += `</details>`;
   }
 
   for (const turn of (data.turns || [])) {
@@ -384,7 +388,12 @@ function renderSession(data) {
     for (const up of (turn.user_prompts || [])) {
       html += `<section class="card"><h3 style="margin:0 0 6px;color:var(--mut);font-size:15px">用户输入</h3>${clipView(up, "u-"+turn.turn)}</section>`;
     }
-    (q ? shown : steps).forEach((st, i) => { html += renderStep(st, st.step ?? i, data.short_id || "s"); });
+    const openAt = (() => {
+      const arr = q ? shown : steps;
+      const i = arr.findIndex(st => (st.thinking && st.thinking.length) || (st.thinking_obj && st.thinking_obj.text));
+      return i < 0 ? 0 : i;
+    })();
+    (q ? shown : steps).forEach((st, i) => { html += renderStep(st, st.step ?? i, data.short_id || "s", i === openAt); });
   }
 
   if (data.comms && data.comms.length) {
@@ -455,7 +464,18 @@ async function openTask(id) {
   try {
     const data = await loadChunk(id);
     detail.innerHTML = id === "autoloop" ? renderAutoloop(data) : renderSession(data);
-    // If hash search wants a thinking step expanded: first step with thinking stays open via renderStep
+    requestAnimationFrame(() => {
+      const first = detail.querySelector("article.step.open") || detail.querySelector("article.step");
+      if (!first) return;
+      const pane = document.getElementById("detailcol");
+      const desk = window.matchMedia("(min-width:900px)").matches;
+      if (desk && pane) {
+        const top = first.getBoundingClientRect().top - pane.getBoundingClientRect().top + pane.scrollTop - 8;
+        pane.scrollTop = Math.max(0, top);
+      } else {
+        first.scrollIntoView({block:"start", inline:"nearest"});
+      }
+    });
   } catch (e) {
     detail.innerHTML = `<div class="empty">无法加载这个任务的明细。</div>`;
   }
