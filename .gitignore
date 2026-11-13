@@ -4,3 +4,6 @@ plaintext.html
 *.plain.html
 .env
 secrets/
+data/.staging/
+*.plain.json
+manifest.plain.json

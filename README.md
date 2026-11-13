@@ -1,10 +1,11 @@
-# dsh monitor
+# dsh 监控
 
-Encrypted, monitoring-only static page of what dsh produced (task state, turns, tool-call counts, outputs, errors, autoloop runs).
+加密的静态监控页，展示 dsh 全部任务明细：完整会话、思考过程、每一步工具参数与结果、错误、token、Autoloop 卡片与事件。
 
-- The published `index.html` is **ciphertext only** (AES-256-GCM, PBKDF2-SHA-256). The password is not in this repository.
-- A **wrong password shows nothing** (the page does not decrypt and does not render any data).
-- Refreshed about every 15 minutes by a **local** script (`bash` + `python` + `git push`) on the operator machine. The loop makes **no LLM calls, no Grok Bot routine calls, and no MCP connector calls**, and uses **zero** dsh / Grok Bot quota.
-- Git push uses a locally stored GitHub credential, configured once (`gh auth` / git credential helper).
+- 仓库里只有密文（AES-256-GCM，PBKDF2-SHA-256）。密码不在仓库中。
+- 输错密码看不到任何任务数据。
+- 任务列表先加载；点开某个任务后再拉取该任务的加密分片。
+- 由本机定时脚本（bash + python + git push）在有变化时更新。不同步调用 dsh、Grok Bot、大模型或 MCP，不消耗额度。
+- 页面按手机宽度（约 390px）优先排版。
 
-Open the GitHub Pages URL and enter the operator password.
+打开 GitHub Pages 地址，输入密码即可查看。
